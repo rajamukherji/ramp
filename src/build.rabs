@@ -1,0 +1,5 @@
+c_library(LIB_DIR / "libramp.a", [file("ramp.h")], [file("ramp.o")])
+
+if defined("TEST_RAMP") then
+	subdir("test")
+end
