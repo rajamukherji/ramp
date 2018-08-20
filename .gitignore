@@ -54,3 +54,7 @@ dkms.conf
 /lib/
 /obj/
 /build.rabs.db
+/.README.md.html
+/.cproject
+/.project
+/.settings
