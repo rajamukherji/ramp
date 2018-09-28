@@ -74,6 +74,13 @@ void ramp_reset(ramp_t *Ramp) {
 	Ramp->Pages = 0;
 }
 
+void ramp_clear(ramp_t *Ramp) {
+	for (ramp_ext_t *Ext = Ramp->Exts; Ext; Ext = Ext->Next) free(Ext->Bytes);
+	size_t FreeSpace = Ramp->PageSize;
+	for (ramp_page_t *Page = Ramp->Pages; Page; Page = Page->Next) Page->FreeSpace = FreeSpace;
+	Ramp->Exts = 0;
+}
+
 void ramp_free(ramp_t *Ramp) {
 	ramp_reset(Ramp);
 	free(Ramp);
