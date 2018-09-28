@@ -21,11 +21,18 @@ ramp_t *ramp_new(size_t PageSize);
 void *ramp_alloc(ramp_t *Ramp, size_t Size);
 
 /**
- * \brief frees memory allocated within ramp_t instance.
+ * \brief frees memory allocated within ramp_t instance and frees memory blocks.
  *
  * \param Ramp ramp_t object allocated with ramp_new.
  */
 void ramp_reset(ramp_t *Ramp);
+
+/**
+ * \brief frees memory allocated within ramp_t instance while keeping memory blocks for reuse.
+ *
+ * \param Ramp ramp_t object allocated with ramp_new.
+ */
+void ramp_free(ramp_t *Ramp);
 
 /**
  * \brief frees a ramp_t object and all allocated pages.
