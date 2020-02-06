@@ -76,7 +76,10 @@ void *ramp_defer(ramp_t *Ramp, size_t Size, void (*CleanupFn)(void *)) {
 void ramp_clear(ramp_t *Ramp) {
 	for (ramp_defer_t *Defer = Ramp->Defers; Defer; Defer = Defer->Next) Defer->CleanupFn(Defer + 1);
 	size_t FreeSpace = Ramp->PageSize;
-	for (ramp_page_t *Page = Ramp->Pages; Page; Page = Page->Next) Page->FreeSpace = FreeSpace;
+	for (ramp_page_t *Page = Ramp->Pages; Page; Page = Page->Next) {
+		Page->FreeSpace = FreeSpace;
+		Page->FreeBytes = Page->Bytes;
+	}
 	Ramp->Defers = NULL;
 }
 
