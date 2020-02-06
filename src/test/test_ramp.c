@@ -8,8 +8,8 @@
 int main(int Argc, char **Argv) {
 	ramp_t *Ramp = ramp_new(512);
 	srand(time(0));
-	for (int J = 0; J < 16; ++J) {
-		for (int I = 0; I < 32; ++I) {
+	for (int J = 0; J < 1; ++J) {
+		for (int I = 0; I < 160; ++I) {
 			size_t Size = 1 + rand() % 1024;
 			void *Block = ramp_alloc(Ramp, Size);
 			memset(Block, 0, Size);

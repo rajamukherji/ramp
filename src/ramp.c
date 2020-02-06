@@ -16,7 +16,7 @@ struct ramp_defer_t {
 };
 
 struct ramp_t {
-	ramp_page_t *Pages;
+	ramp_page_t *Pages, *Full;
 	ramp_defer_t *Defers;
 	size_t PageSize;
 };
@@ -36,32 +36,37 @@ static void ramp_defer_free(void **Slot) {
 void *ramp_alloc(ramp_t *Ramp, size_t Size) {
 	Size += 15;
 	Size &= ~15;
+	printf("[%d]", Size);
+	for (ramp_page_t *Page = Ramp->Pages; Page; Page = Page->Next) {
+		printf(" %d", Page->FreeSpace);
+	}
+	printf("\n");
 	if (Size >= Ramp->PageSize) {
 		void **Slot = (void **)ramp_defer(Ramp, sizeof(void *), ramp_defer_free);
 		void *Bytes = Slot[0] = malloc(Size);
 		return Bytes;
 	} else {
-		 for (ramp_page_t **Slot = &Ramp->Pages, *Page = *Slot; Page; Page = *(Slot = &Page->Next)) {
-			 if (Page->FreeSpace >= Size) {
-				 void *Bytes = Page->FreeBytes;
-				 Page->FreeSpace -= Size;
-				 Page->FreeBytes += Size;
-				 Slot[0] = Page->Next;
-				 Slot = &Ramp->Pages;
-				 while (Slot[0] && Slot[0]->FreeSpace < Page->FreeSpace) Slot = &Slot[0]->Next;
-				 Page->Next = Slot[0];
-				 Slot[0] = Page;
-				 return Bytes;
-			 }
-		 }
-		 ramp_page_t *Page = (ramp_page_t *)malloc(sizeof(ramp_page_t) + Ramp->PageSize);
-		 Page->FreeBytes = Page->Bytes + Size;
-		 Page->FreeSpace = Ramp->PageSize - Size;
-		 ramp_page_t **Slot = &Ramp->Pages;
-		 while (Slot[0] && Slot[0]->FreeSpace < Page->FreeSpace) Slot = &Slot[0]->Next;
-		 Page->Next = Slot[0];
-		 Slot[0] = Page;
-		 return Page->Bytes;
+		for (ramp_page_t **Slot = &Ramp->Pages, *Page = *Slot; Page; Page = *(Slot = &Page->Next)) {
+			if (Page->FreeSpace >= Size) {
+				void *Bytes = Page->FreeBytes;
+				Page->FreeBytes = Bytes + Size;
+				Page->FreeSpace -= Size;
+				if (!Page->FreeSpace) {
+					Slot[0] = Page->Next;
+					Page->Next = Ramp->Full;
+					Ramp->Full = Page;
+				}
+				return Bytes;
+			}
+		}
+		ramp_page_t *Page = (ramp_page_t *)malloc(sizeof(ramp_page_t) + Ramp->PageSize);
+		Page->FreeBytes = Page->Bytes + Size;
+		Page->FreeSpace = Ramp->PageSize - Size;
+		ramp_page_t **Slot = &Ramp->Pages;
+		while (Slot[0] && Slot[0]->FreeSpace < Page->FreeSpace) Slot = &Slot[0]->Next;
+		Page->Next = Slot[0];
+		Slot[0] = Page;
+		return Page->Bytes;
 	}
 }
 
@@ -76,10 +81,19 @@ void *ramp_defer(ramp_t *Ramp, size_t Size, void (*CleanupFn)(void *)) {
 void ramp_clear(ramp_t *Ramp) {
 	for (ramp_defer_t *Defer = Ramp->Defers; Defer; Defer = Defer->Next) Defer->CleanupFn(Defer + 1);
 	size_t FreeSpace = Ramp->PageSize;
-	for (ramp_page_t *Page = Ramp->Pages; Page; Page = Page->Next) {
-		Page->FreeSpace = FreeSpace;
-		Page->FreeBytes = Page->Bytes;
+	ramp_page_t **Slot = &Ramp->Pages;
+	while (Slot[0]) {
+		Slot[0]->FreeSpace = FreeSpace;
+		Slot[0]->FreeBytes = Slot[0]->Bytes;
+		Slot = &Slot[0]->Next;
 	}
+	Slot[0] = Ramp->Full;
+	while (Slot[0]) {
+		Slot[0]->FreeSpace = FreeSpace;
+		Slot[0]->FreeBytes = Slot[0]->Bytes;
+		Slot = &Slot[0]->Next;
+	}
+	Ramp->Full = NULL;
 	Ramp->Defers = NULL;
 }
 
@@ -89,8 +103,13 @@ void ramp_reset(ramp_t *Ramp) {
 		Next = Page->Next;
 		free(Page);
 	}
+	for (ramp_page_t *Page = Ramp->Full, *Next; Page; Page = Next) {
+		Next = Page->Next;
+		free(Page);
+	}
 	Ramp->Defers = NULL;
 	Ramp->Pages = NULL;
+	Ramp->Full = NULL;
 }
 
 void ramp_free(ramp_t *Ramp) {

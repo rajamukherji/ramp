@@ -1,6 +1,8 @@
 if defined("DEBUG") then
 	CFLAGS := old + ["-g"]
 	LDFLAGS := old + ["-g"]
+else
+	CFLAGS := old + ["-O3"]
 end
 
 LIBRAMP := c_library(file("libramp.a"), [file("ramp.o")])
