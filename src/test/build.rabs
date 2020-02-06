@@ -1,3 +1,1 @@
-CFLAGS := old + ['-I{INC_DIR}']
-
-c_program(file("test_ramp"), [file("test_ramp.o")], [LIB_DIR / "libramp.a"])
+c_program(file("test_ramp"), [file("test_ramp.o")], [LIBRAMP])

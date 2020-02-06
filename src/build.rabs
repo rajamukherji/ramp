@@ -1,4 +1,9 @@
-c_library(file("libramp.a"), [file("ramp.o")])
+if defined("DEBUG") then
+	CFLAGS := old + ["-g"]
+	LDFLAGS := old + ["-g"]
+end
+
+LIBRAMP := c_library(file("libramp.a"), [file("ramp.o")])
 
 if defined("TEST_RAMP") then
 	subdir("test")

@@ -1,4 +1,4 @@
-#include "ramp.h"
+#include "../ramp.h"
 
 #include <math.h>
 #include <string.h>
@@ -14,7 +14,7 @@ int main(int Argc, char **Argv) {
 			void *Block = ramp_alloc(Ramp, Size);
 			memset(Block, 0, Size);
 		}
-		ramp_reset(Ramp);
+		ramp_clear(Ramp);
 	}
 	ramp_free(Ramp);
 	return 0;
