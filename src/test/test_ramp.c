@@ -21,7 +21,7 @@ struct block_t {
 	char Chars[];
 };
 
-#define _COMPARE_MALLOC
+#define COMPARE_MALLOC
 
 int main(int Argc, char **Argv) {
 #ifndef COMPARE_MALLOC

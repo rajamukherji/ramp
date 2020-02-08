@@ -30,16 +30,26 @@ The `PageSize` argument to `ramp_new` sets the size of each new page.
 ramp_t *Ramp = ramp_new(512);
 ```
 
-During the event handling, any number of memory blocks can be allo0cated using `ramp_alloc(ramp_t *Ramp, size_t Size)`.
+During the event handling, any number of memory blocks can be allocated using `ramp_alloc(ramp_t *Ramp, size_t Size)`.
 
 ```c
 char *Buffer = ramp_alloc(Ramp, 128);
 ```
 
-Finally, after the event is handled, all of the memory allocated with the `ramp_t` instance can be freed using `ramp_reset(ramp_t *Ramp)`.
+Finally, after the event is handled, all of the memory allocated with the `ramp_t` instance can be freed using `ramp_clear(ramp_t *Ramp)`.
 
 ```c
-ramp_reset(Ramp);
+ramp_clear(Ramp);
+```
+
+If additional cleanup is required when `ramp_clear()` is called, `ramp_defer(ramp_t *Ramp, size_t Size, void (*CleanupFn)(void *))` can be used instead of `ramp_alloc()`. `CleanupFn()` will be called with the returned pointer when `ramp_clear()` is called.
+
+```c
+void object_cleanup(struct object_t *Object) {
+	// clean up code
+}
+
+struct object_t *Object = (object_t *)ramp_defer(Ramp, sizeof(object_t), object_cleanup);
 ```
 
 The `ramp_t` instance can be reused if required.
