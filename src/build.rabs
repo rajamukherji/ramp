@@ -1,6 +1,8 @@
+CFLAGS := old + ["-g"]
+LDFLAGS := old + ["-g"]
+
 if defined("DEBUG") then
-	CFLAGS := old + ["-g", "-DDEBUG"]
-	LDFLAGS := old + ["-g"]
+	CFLAGS := old + ["-DDEBUG"]
 else
 	CFLAGS := old + ["-O3"]
 end

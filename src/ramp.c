@@ -4,9 +4,7 @@ typedef struct ramp_page_t ramp_page_t;
 typedef struct ramp_defer_t ramp_defer_t;
 
 struct ramp_page_t {
-	ramp_page_t *Next, *Sibling;
-	void *FreeBytes;
-	size_t FreeSpace;
+	ramp_page_t *Next;
 	char Bytes[] __attribute__ ((aligned(16)));
 };
 
@@ -18,14 +16,20 @@ struct ramp_defer_t {
 struct ramp_t {
 	ramp_page_t *Pages, *Full;
 	ramp_defer_t *Defers;
-	size_t PageSize;
+	size_t PageSize, Space;
 };
 
 ramp_t *ramp_new(size_t PageSize) {
+	PageSize += 15;
+	PageSize &= ~15;
+	ramp_page_t *Page = (ramp_page_t *)malloc(sizeof(ramp_page_t) + PageSize);
+	Page->Next = 0;
 	ramp_t *Ramp = (ramp_t *)malloc(sizeof(ramp_t));
-	Ramp->Pages = NULL;
+	Ramp->Pages = Page;
+	Ramp->Full = NULL;
 	Ramp->Defers = NULL;
-	Ramp->PageSize = (PageSize + 15) & ~15;
+	Ramp->PageSize = PageSize;
+	Ramp->Space = PageSize;
 	return Ramp;
 }
 
@@ -33,86 +37,31 @@ static void ramp_defer_free(void **Slot) {
 	free(Slot[0]);
 }
 
+#define likely(x)    __builtin_expect (!!(x), 1)
+#define unlikely(x)  __builtin_expect (!!(x), 0)
+
 void *ramp_alloc(ramp_t *Ramp, size_t Size) {
 	Size += 15;
 	Size &= ~15;
-#ifdef DEBUG
-	printf("[%d]", Size);
-	for (ramp_page_t *Page = Ramp->Pages; Page; Page = Page->Next) {
-		printf(" (");
-		for (ramp_page_t *Sibling = Page; Sibling; Sibling = Sibling->Sibling) {
-			printf(" %d", Sibling->FreeSpace);
+	if (likely(Size <= Ramp->Space)) {
+		Ramp->Space -= Size;
+		return Ramp->Pages->Bytes + Ramp->Space;
+	} else if (Size <= Ramp->PageSize) {
+		ramp_page_t *Old = Ramp->Pages;
+		ramp_page_t *New = Old->Next;
+		Old->Next = Ramp->Full;
+		Ramp->Full = Old;
+		if (!New) {
+			New = (ramp_page_t *)malloc(sizeof(ramp_page_t) + Ramp->PageSize);
+			New->Next = NULL;
 		}
-		printf(" )");
-	}
-	printf("\n");
-#endif
-	if (Size >= Ramp->PageSize) {
-		void **Slot = (void **)ramp_defer(Ramp, sizeof(void *), ramp_defer_free);
+		Ramp->Pages = New;
+		Ramp->Space = Ramp->PageSize - Size;
+		return New->Bytes + Ramp->Space;
+	} else {
+		void **Slot = (void **)ramp_defer(Ramp, sizeof(void *), (void *)ramp_defer_free);
 		void *Bytes = Slot[0] = malloc(Size);
 		return Bytes;
-	} else if (!Ramp->Pages) {
-		ramp_page_t *Page = (ramp_page_t *)malloc(sizeof(ramp_page_t) + Ramp->PageSize);
-		Page->FreeBytes = Page->Bytes + Size;
-		Page->FreeSpace = Ramp->PageSize - Size;
-		Page->Next = Page->Sibling = NULL;
-		Ramp->Pages = Page;
-		return Page->Bytes;
-	} else {
-		ramp_page_t *Prev = NULL;
-		for (ramp_page_t **Slot = &Ramp->Pages, *Page = *Slot; Page; Prev = Page, Page = *(Slot = &Page->Next)) {
-			if (Page->FreeSpace >= Size) {
-				void *Bytes = Page->FreeBytes;
-				Page->FreeBytes = Bytes + Size;
-				Page->FreeSpace -= Size;
-				if (!Page->FreeSpace) {
-					if (Page->Sibling) {
-						Page->Sibling->Next = Page->Next;
-						Slot[0] = Page->Sibling;
-					} else {
-						Slot[0] = Page->Next;
-					}
-					Page->Next = Ramp->Full;
-					Page->Sibling = NULL;
-					Ramp->Full = Page;
-				} else if (Prev && Prev->FreeSpace == Page->FreeSpace) {
-					if (Page->Sibling) {
-						Page->Sibling->Next = Page->Next;
-						Prev->Next = Page->Sibling;
-					} else {
-						Prev->Next = Page->Next;
-					}
-					Page->Sibling = Prev->Sibling;
-					Prev->Sibling = Page;
-				} else if (Page->Sibling) {
-					Page->Sibling->Next = Page->Next;
-					Page->Next = Page->Sibling;
-					Page->Sibling = NULL;
-				}
-				return Bytes;
-			}
-		}
-		ramp_page_t *Page = (ramp_page_t *)malloc(sizeof(ramp_page_t) + Ramp->PageSize);
-		Page->FreeBytes = Page->Bytes + Size;
-		Page->FreeSpace = Ramp->PageSize - Size;
-		for (ramp_page_t **Slot = &Ramp->Pages, *Prev = *Slot; ; Prev = *(Slot = &Prev->Next)) {
-			if (!Prev) {
-				Page->Next = Page->Sibling = NULL;
-				Slot[0] = Page;
-				break;
-			} else if (Prev->FreeSpace == Page->FreeSpace) {
-				Page->Sibling = Prev->Sibling;
-				Page->Next = NULL;
-				Prev->Sibling = Page;
-				break;
-			} else if (Prev->FreeSpace > Page->FreeSpace) {
-				Page->Sibling = NULL;
-				Page->Next = Prev;
-				Slot[0] = Page;
-				break;
-			}
-		}
-		return Page->Bytes;
 	}
 }
 
@@ -126,55 +75,33 @@ void *ramp_defer(ramp_t *Ramp, size_t Size, void (*CleanupFn)(void *)) {
 
 void ramp_clear(ramp_t *Ramp) {
 	for (ramp_defer_t *Defer = Ramp->Defers; Defer; Defer = Defer->Next) Defer->CleanupFn(Defer + 1);
-	size_t FreeSpace = Ramp->PageSize;
-	ramp_page_t *Pages = NULL;
-	for (ramp_page_t *Page = Ramp->Pages; Page;) {
-		ramp_page_t *Next = Page->Next;
-		for (ramp_page_t *Sibling = Page->Sibling; Sibling;) {
-			Sibling->Next = Pages;
-			Pages = Sibling;
-			Sibling = Sibling->Sibling;
-		}
-		Page->Next = Pages;
-		Pages = Page;
-		Page = Next;
-	}
-	for (ramp_page_t *Page = Ramp->Full; Page;) {
-		ramp_page_t *Next = Page->Next;
-		Page->Next = Pages;
-		Pages = Page;
-		Page = Next;
-	}
-	for (ramp_page_t *Page = Pages; Page; Page = Page->Next) {
-		Page->FreeSpace = Ramp->PageSize;
-		Page->FreeBytes = Page->Bytes;
-		Page->Sibling = NULL;
-	}
-	Ramp->Pages = Pages;
-	Ramp->Full = NULL;
 	Ramp->Defers = NULL;
+	ramp_page_t **Slot = &Ramp->Pages->Next;
+	while (Slot[0]) Slot = &Slot[0]->Next;
+	Slot[0] = Ramp->Full;
+	Ramp->Full = NULL;
+	Ramp->Space = Ramp->PageSize;
 }
 
 void ramp_reset(ramp_t *Ramp) {
 	for (ramp_defer_t *Defer = Ramp->Defers; Defer; Defer = Defer->Next) Defer->CleanupFn(Defer + 1);
-	for (ramp_page_t *Page = Ramp->Pages, *Next; Page; Page = Next) {
+	Ramp->Defers = NULL;
+	ramp_page_t *Old = Ramp->Pages;
+	for (ramp_page_t *Page = Old->Next, *Next; Page; Page = Next) {
 		Next = Page->Next;
-		for (ramp_page_t *Sibling = Page->Sibling, *Sibling2; Sibling; Sibling = Sibling2) {
-			Sibling2 = Sibling->Sibling;
-			free(Sibling);
-		}
 		free(Page);
 	}
+	Old->Next = NULL;
 	for (ramp_page_t *Page = Ramp->Full, *Next; Page; Page = Next) {
 		Next = Page->Next;
 		free(Page);
 	}
-	Ramp->Defers = NULL;
-	Ramp->Pages = NULL;
 	Ramp->Full = NULL;
+	Ramp->Space = Ramp->PageSize;
 }
 
 void ramp_free(ramp_t *Ramp) {
 	ramp_reset(Ramp);
+	free(Ramp->Pages);
 	free(Ramp);
 }

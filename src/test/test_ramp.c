@@ -10,7 +10,7 @@
 #define INNER 160
 #else
 #define OUTER 1600
-#define INNER 16000
+#define INNER 160000
 #endif
 
 typedef struct block_t block_t;
@@ -21,25 +21,33 @@ struct block_t {
 	char Chars[];
 };
 
-#define COMPARE_MALLOC
+#define _COMPARE_MALLOC
 
 int main(int Argc, char **Argv) {
+#ifndef COMPARE_MALLOC
+#ifdef DEBUG
+	ramp_t *Ramp = ramp_new(1 << 9);
+#else
 	ramp_t *Ramp = ramp_new(1 << 16);
-	srand(time(0));
+#endif
+#endif
+	size_t Size = 1;
 	for (int J = 0; J < OUTER; ++J) {
 		block_t *Blocks = NULL;
 		for (int I = 0; I < INNER; ++I) {
-			size_t Size = 1 + rand() % 1024;
+			size_t Size = 1 + (Size * 21367) % 1024;
 #ifdef COMPARE_MALLOC
 			block_t *Block = malloc(sizeof(block_t) + Size);
 #else
 			block_t *Block = ramp_alloc(Ramp, sizeof(block_t) + Size);
 #endif
+#ifdef DEBUG
 			char Char = 'A' + Size % 26;
+			memset(Block->Chars, Char, Size);
+#endif
 			Block->Size = Size;
 			Block->Next = Blocks;
 			Blocks = Block;
-			memset(Block->Chars, Char, Size);
 		}
 #ifdef DEBUG
 		for (block_t *Block = Blocks; Block; Block = Block->Next) {
@@ -59,6 +67,8 @@ int main(int Argc, char **Argv) {
 		ramp_clear(Ramp);
 #endif
 	}
+#ifndef COMPARE_MALLOC
 	ramp_free(Ramp);
+#endif
 	return 0;
 }
