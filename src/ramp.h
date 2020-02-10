@@ -27,7 +27,7 @@ void *ramp_alloc(ramp_t *Ramp, size_t Size) __attribute__((malloc));
  * \param Size Size of memory block to allocate.
  * \param CleanupFn Function to call on reset.
  */
-void *ramp_defer(ramp_t *Ramp, size_t Size, void (*CleanupFn)(void *)) __attribute__((malloc));
+void *ramp_defer(ramp_t *Ramp, size_t Size, void (*CleanupFn)(void *));
 
 /**
  * \brief frees memory allocated within ramp_t instance while keeping memory blocks for reuse.
