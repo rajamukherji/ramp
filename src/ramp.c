@@ -40,7 +40,7 @@ static void ramp_defer_free(void **Slot) {
 #define likely(x)    __builtin_expect (!!(x), 1)
 #define unlikely(x)  __builtin_expect (!!(x), 0)
 
-char *ramp_alloc(ramp_t *Ramp, size_t Size) {
+void *ramp_alloc(ramp_t *Ramp, size_t Size) {
 	Size += 15;
 	Size &= ~15;
 	if (likely(Size <= Ramp->Space)) {
@@ -59,13 +59,13 @@ char *ramp_alloc(ramp_t *Ramp, size_t Size) {
 		Ramp->Space = Ramp->PageSize - Size;
 		return New->Bytes + Ramp->Space;
 	} else {
-		char **Slot = (char **)ramp_defer(Ramp, sizeof(char *), (char *)ramp_defer_free);
-		char *Bytes = Slot[0] = malloc(Size);
+		void **Slot = (void **)ramp_defer(Ramp, sizeof(void *), (void *)ramp_defer_free);
+		void *Bytes = Slot[0] = malloc(Size);
 		return Bytes;
 	}
 }
 
-char *ramp_defer(ramp_t *Ramp, size_t Size, void (*CleanupFn)(char *)) {
+void *ramp_defer(ramp_t *Ramp, size_t Size, void (*CleanupFn)(void *)) {
 	ramp_defer_t *Defer = ramp_alloc(Ramp, sizeof(ramp_defer_t) + Size);
 	Defer->Next = Ramp->Defers;
 	Defer->CleanupFn = CleanupFn;
