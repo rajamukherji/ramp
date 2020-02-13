@@ -65,6 +65,14 @@ void *ramp_alloc(ramp_t *Ramp, size_t Size) {
 	}
 }
 
+void *ramp_strdup(ramp_t *Ramp, const char *String) {
+	size_t Length = strlen(String);
+	char *Copy = ramp_alloc(Ramp, Length + 1);
+	memcpy(Copy, String, Length);
+	Copy[Length] = 0;
+	return Copy;
+}
+
 void *ramp_defer(ramp_t *Ramp, size_t Size, void (*CleanupFn)(void *)) {
 	ramp_defer_t *Defer = ramp_alloc(Ramp, sizeof(ramp_defer_t) + Size);
 	Defer->Next = Ramp->Defers;

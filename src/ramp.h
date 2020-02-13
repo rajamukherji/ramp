@@ -21,6 +21,14 @@ ramp_t *ramp_new(size_t PageSize);
 void *ramp_alloc(ramp_t *Ramp, size_t Size) __attribute__((malloc));
 
 /**
+ * \brief copies a string into a ramp_t instance.
+ *
+ * \param Ramp ramp_t object allocated with ramp_new.
+ * \param String String to copy.
+ */
+void *ramp_strdup(ramp_t *Ramp, const char *String) __attribute__((malloc));
+
+/**
  * \brief create a deferred cleanup entry which will be called on reset.
  *
  * \param Ramp ramp_t object allocated with ramp_new.
