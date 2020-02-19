@@ -1,11 +1,14 @@
 #include "ramp.h"
 
+#include <string.h>
+
 typedef struct ramp_page_t ramp_page_t;
 typedef struct ramp_defer_t ramp_defer_t;
 
 struct ramp_page_t {
 	ramp_page_t *Next;
 	char Bytes[] __attribute__ ((aligned(16)));
+	//char *Bytes;
 };
 
 struct ramp_defer_t {
@@ -19,10 +22,22 @@ struct ramp_t {
 	size_t PageSize, Space;
 };
 
+static inline ramp_page_t *ramp_page_new(size_t PageSize) {
+	ramp_page_t *Page = (ramp_page_t *)malloc(sizeof(ramp_page_t) + PageSize);
+	//ramp_page_t *Page = (ramp_page_t *)malloc(sizeof(ramp_page_t));
+	//Page->Bytes = malloc(PageSize);
+	return Page;
+}
+
+static inline void ramp_page_free(ramp_page_t *Page) {
+	//free(Page->Bytes);
+	free(Page);
+}
+
 ramp_t *ramp_new(size_t PageSize) {
 	PageSize += 15;
 	PageSize &= ~15;
-	ramp_page_t *Page = (ramp_page_t *)malloc(sizeof(ramp_page_t) + PageSize);
+	ramp_page_t *Page = ramp_page_new(PageSize);
 	Page->Next = 0;
 	ramp_t *Ramp = (ramp_t *)malloc(sizeof(ramp_t));
 	Ramp->Pages = Page;
@@ -52,7 +67,7 @@ void *ramp_alloc(ramp_t *Ramp, size_t Size) {
 		Old->Next = Ramp->Full;
 		Ramp->Full = Old;
 		if (!New) {
-			New = (ramp_page_t *)malloc(sizeof(ramp_page_t) + Ramp->PageSize);
+			New = ramp_page_new(Ramp->PageSize);
 			New->Next = NULL;
 		}
 		Ramp->Pages = New;
@@ -97,12 +112,12 @@ void ramp_reset(ramp_t *Ramp) {
 	ramp_page_t *Old = Ramp->Pages;
 	for (ramp_page_t *Page = Old->Next, *Next; Page; Page = Next) {
 		Next = Page->Next;
-		free(Page);
+		ramp_page_free(Page);
 	}
 	Old->Next = NULL;
 	for (ramp_page_t *Page = Ramp->Full, *Next; Page; Page = Next) {
 		Next = Page->Next;
-		free(Page);
+		ramp_page_free(Page);
 	}
 	Ramp->Full = NULL;
 	Ramp->Space = Ramp->PageSize;
@@ -110,6 +125,6 @@ void ramp_reset(ramp_t *Ramp) {
 
 void ramp_free(ramp_t *Ramp) {
 	ramp_reset(Ramp);
-	free(Ramp->Pages);
+	ramp_page_free(Ramp->Pages);
 	free(Ramp);
 }
