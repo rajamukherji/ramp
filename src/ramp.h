@@ -38,6 +38,15 @@ void *ramp_strdup(ramp_t *Ramp, const char *String) __attribute__((malloc));
 void *ramp_defer(ramp_t *Ramp, size_t Size, void (*CleanupFn)(void *));
 
 /**
+ * \brief adds a function to call on reset with a single argument
+ *
+ * \param Ramp ramp_t object allocated with ramp_new.
+ * \param CleanupFn Function to call on reset.
+ * \param Arg Argument to pass to CleanupFn.
+ */
+void ramp_on_reset(ramp_t *Ramp, void (*CleanupFn)(void *), void *Arg);
+
+/**
  * \brief frees memory allocated within ramp_t instance while keeping memory blocks for reuse.
  *
  * \param Ramp ramp_t object allocated with ramp_new.

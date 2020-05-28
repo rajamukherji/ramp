@@ -96,6 +96,21 @@ void *ramp_defer(ramp_t *Ramp, size_t Size, void (*CleanupFn)(void *)) {
 	return Defer + 1;
 }
 
+typedef struct {
+	void (*CleanupFn)(void *);
+	void *Arg;
+} ramp_on_reset_t;
+
+static void ramp_on_reset_fn(ramp_on_reset_t *OnReset) {
+	OnReset->CleanupFn(OnReset->Arg);
+}
+
+void ramp_on_reset(ramp_t *Ramp, void (*CleanupFn)(void *), void *Arg) {
+	ramp_on_reset_t *OnReset = ramp_defer(Ramp, sizeof(ramp_on_reset_t), (void *)ramp_on_reset_fn);
+	OnReset->CleanupFn = CleanupFn;
+	OnReset->Arg = Arg;
+}
+
 void ramp_clear(ramp_t *Ramp) {
 	for (ramp_defer_t *Defer = Ramp->Defers; Defer; Defer = Defer->Next) Defer->CleanupFn(Defer + 1);
 	Ramp->Defers = NULL;
