@@ -16,7 +16,7 @@ ramp_t *ramp_new(size_t PageSize);
  * \brief allocates a block of memory within ramp_t instance.
  *
  * \param Ramp ramp_t object allocated with ramp_new.
- * \param Size Size of memory block to allocate.
+ * \param Size size of memory block to allocate.
  */
 void *ramp_alloc(ramp_t *Ramp, size_t Size) __attribute__((malloc));
 
@@ -24,27 +24,28 @@ void *ramp_alloc(ramp_t *Ramp, size_t Size) __attribute__((malloc));
  * \brief copies a string into a ramp_t instance.
  *
  * \param Ramp ramp_t object allocated with ramp_new.
- * \param String String to copy.
+ * \param String string to copy.
  */
 void *ramp_strdup(ramp_t *Ramp, const char *String) __attribute__((malloc));
 
-/**
- * \brief create a deferred cleanup entry which will be called on reset.
- *
- * \param Ramp ramp_t object allocated with ramp_new.
- * \param Size Size of memory block to allocate.
- * \param CleanupFn Function to call on reset.
- */
-void *ramp_defer(ramp_t *Ramp, size_t Size, void (*CleanupFn)(void *));
+typedef struct ramp_deferral_t ramp_deferral_t;
 
 /**
- * \brief adds a function to call on reset with a single argument
+ * \brief defers a function call until ramp_clear or ramp_reset.
  *
  * \param Ramp ramp_t object allocated with ramp_new.
- * \param CleanupFn Function to call on reset.
- * \param Arg Argument to pass to CleanupFn.
+ * \param Function function to call on reset.
+ * \param Arg argument to pass to CleanupFn.
+ * \return A deferral reference which can be used to cancel this deferral.
  */
-void ramp_on_reset(ramp_t *Ramp, void (*CleanupFn)(void *), void *Arg);
+ramp_deferral_t *ramp_defer(ramp_t *Ramp, void (*Function)(void *), void *Arg);
+
+/**
+ * \brief cancels a deferred call.
+ *
+ * \param Deferral ramp_deferral_t returned by ramp_defer.
+ */
+void ramp_cancel(ramp_deferral_t *Deferral);
 
 /**
  * \brief frees memory allocated within ramp_t instance while keeping memory blocks for reuse.

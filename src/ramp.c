@@ -3,34 +3,30 @@
 #include <string.h>
 
 typedef struct ramp_page_t ramp_page_t;
-typedef struct ramp_defer_t ramp_defer_t;
 
 struct ramp_page_t {
 	ramp_page_t *Next;
 	char Bytes[] __attribute__ ((aligned(16)));
-	//char *Bytes;
 };
 
-struct ramp_defer_t {
-	ramp_defer_t *Next;
-	void (*CleanupFn)(void *);
+struct ramp_deferral_t {
+	ramp_deferral_t *Next;
+	void (*Callback)(void *);
+	void *Arg;
 };
 
 struct ramp_t {
 	ramp_page_t *Pages, *Full;
-	ramp_defer_t *Defers;
+	ramp_deferral_t *Deferrals;
 	size_t PageSize, Space;
 };
 
 static inline ramp_page_t *ramp_page_new(size_t PageSize) {
 	ramp_page_t *Page = (ramp_page_t *)malloc(sizeof(ramp_page_t) + PageSize);
-	//ramp_page_t *Page = (ramp_page_t *)malloc(sizeof(ramp_page_t));
-	//Page->Bytes = malloc(PageSize);
 	return Page;
 }
 
 static inline void ramp_page_free(ramp_page_t *Page) {
-	//free(Page->Bytes);
 	free(Page);
 }
 
@@ -42,14 +38,10 @@ ramp_t *ramp_new(size_t PageSize) {
 	ramp_t *Ramp = (ramp_t *)malloc(sizeof(ramp_t));
 	Ramp->Pages = Page;
 	Ramp->Full = NULL;
-	Ramp->Defers = NULL;
+	Ramp->Deferrals = NULL;
 	Ramp->PageSize = PageSize;
 	Ramp->Space = PageSize;
 	return Ramp;
-}
-
-static void ramp_defer_free(void **Slot) {
-	free(Slot[0]);
 }
 
 #define likely(x)    __builtin_expect (!!(x), 1)
@@ -74,8 +66,8 @@ void *ramp_alloc(ramp_t *Ramp, size_t Size) {
 		Ramp->Space = Ramp->PageSize - Size;
 		return New->Bytes + Ramp->Space;
 	} else {
-		void **Slot = (void **)ramp_defer(Ramp, sizeof(void *), (void *)ramp_defer_free);
-		void *Bytes = Slot[0] = malloc(Size);
+		void *Bytes = malloc(Size);
+		ramp_defer(Ramp, free, Bytes);
 		return Bytes;
 	}
 }
@@ -88,32 +80,23 @@ void *ramp_strdup(ramp_t *Ramp, const char *String) {
 	return Copy;
 }
 
-void *ramp_defer(ramp_t *Ramp, size_t Size, void (*CleanupFn)(void *)) {
-	ramp_defer_t *Defer = ramp_alloc(Ramp, sizeof(ramp_defer_t) + Size);
-	Defer->Next = Ramp->Defers;
-	Defer->CleanupFn = CleanupFn;
-	Ramp->Defers = Defer;
-	return Defer + 1;
+ramp_deferral_t *ramp_defer(ramp_t *Ramp, void (*Callback)(void *), void *Arg) {
+	ramp_deferral_t *Deferral = (ramp_deferral_t *)ramp_alloc(Ramp, sizeof(ramp_deferral_t));
+	Deferral->Next = Ramp->Deferrals;
+	Deferral->Callback = Callback;
+	Deferral->Arg = Arg;
+	return Deferral;
 }
 
-typedef struct {
-	void (*CleanupFn)(void *);
-	void *Arg;
-} ramp_on_reset_t;
+static void ramp_defer_nop(void *Arg) {}
 
-static void ramp_on_reset_fn(ramp_on_reset_t *OnReset) {
-	OnReset->CleanupFn(OnReset->Arg);
-}
-
-void ramp_on_reset(ramp_t *Ramp, void (*CleanupFn)(void *), void *Arg) {
-	ramp_on_reset_t *OnReset = ramp_defer(Ramp, sizeof(ramp_on_reset_t), (void *)ramp_on_reset_fn);
-	OnReset->CleanupFn = CleanupFn;
-	OnReset->Arg = Arg;
+void ramp_cancel(ramp_deferral_t *Deferral) {
+	Deferral->Callback = ramp_defer_nop;
 }
 
 void ramp_clear(ramp_t *Ramp) {
-	for (ramp_defer_t *Defer = Ramp->Defers; Defer; Defer = Defer->Next) Defer->CleanupFn(Defer + 1);
-	Ramp->Defers = NULL;
+	for (ramp_deferral_t *Deferral = Ramp->Deferrals; Deferral; Deferral = Deferral->Next) Deferral->Callback(Deferral->Arg);
+	Ramp->Deferrals = NULL;
 	ramp_page_t **Slot = &Ramp->Pages->Next;
 	while (Slot[0]) Slot = &Slot[0]->Next;
 	Slot[0] = Ramp->Full;
@@ -122,8 +105,8 @@ void ramp_clear(ramp_t *Ramp) {
 }
 
 void ramp_reset(ramp_t *Ramp) {
-	for (ramp_defer_t *Defer = Ramp->Defers; Defer; Defer = Defer->Next) Defer->CleanupFn(Defer + 1);
-	Ramp->Defers = NULL;
+	for (ramp_deferral_t *Deferral = Ramp->Deferrals; Deferral; Deferral = Deferral->Next) Deferral->Callback(Deferral->Arg);
+	Ramp->Deferrals = NULL;
 	ramp_page_t *Old = Ramp->Pages;
 	for (ramp_page_t *Page = Old->Next, *Next; Page; Page = Next) {
 		Next = Page->Next;
