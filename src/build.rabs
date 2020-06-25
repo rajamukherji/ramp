@@ -1,5 +1,28 @@
-c_library(LIB_DIR / "libramp.a", [file("ramp.h")], [file("ramp.o")])
+CFLAGS := old + ["-g"]
+LDFLAGS := old + ["-g"]
+
+if defined("DEBUG") then
+	CFLAGS := old + ["-DDEBUG"]
+else
+	CFLAGS := old + ["-O3"]
+end
+
+LIBRAMP := c_library(file("libramp.a"), [file("ramp.o")])
 
 if defined("TEST_RAMP") then
 	subdir("test")
 end
+
+var InstallBin := PREFIX / "bin"
+var InstallInclude := PREFIX / "include/ramp"
+var InstallLib := PREFIX / "lib"
+
+var InstallHeaders := [
+	"ramp.h"
+]
+
+for Header in InstallHeaders do
+	install(file(Header), InstallInclude / Header)
+end
+
+install(file("libramp.a"), InstallLib / "libramp.a")
