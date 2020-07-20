@@ -85,6 +85,7 @@ ramp_deferral_t *ramp_defer(ramp_t *Ramp, void (*Callback)(void *), void *Arg) {
 	Deferral->Next = Ramp->Deferrals;
 	Deferral->Callback = Callback;
 	Deferral->Arg = Arg;
+	Ramp->Deferrals = Deferral;
 	return Deferral;
 }
 
