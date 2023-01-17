@@ -41,6 +41,7 @@ ramp2_group_t *ramp2_group_new(size_t PageSize) {
 	PageSize += 15;
 	PageSize &= ~15;
 	ramp2_group_t *Group = (ramp2_group_t *)malloc(sizeof(ramp2_group_t));
+	Group->Free = NULL;
 	Group->PageSize = PageSize;
 	return Group;
 }
