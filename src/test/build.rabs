@@ -1,1 +1,2 @@
 c_program(file("test_ramp"), [file("test_ramp.o")], [LIBRAMP])
+c_program(file("test_ramp2"), [file("test_ramp2.o")], [LIBRAMP])
