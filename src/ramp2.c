@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <stdatomic.h>
+#include <stdio.h>
 
 typedef struct ramp2_page_t ramp2_page_t;
 
@@ -29,7 +30,7 @@ struct ramp2_t {
 };
 
 static inline ramp2_page_t *ramp2_page_new(size_t PageSize) {
-	ramp2_page_t *Page = (ramp2_page_t *)malloc(sizeof(ramp2_page_t) + PageSize);
+	ramp2_page_t *Page = (ramp2_page_t *)malloc(PageSize);
 	return Page;
 }
 
@@ -83,7 +84,7 @@ ramp2_t *ramp2_new(ramp2_group_t *Group) {
 	Ramp->Page = ramp2_group_page_new(Group);
 	Ramp->Full = NULL;
 	Ramp->Deferrals = NULL;
-	Ramp->PageSize = Group->PageSize;
+	Ramp->PageSize = Group->PageSize - ((void *)((ramp2_page_t *)0)->Bytes - (void *)0);
 	Ramp->Space = Group->PageSize;
 	return Ramp;
 }
