@@ -83,4 +83,11 @@ void ramp2_clear(ramp2_t *Ramp);
  */
 void ramp2_free(ramp2_t *Ramp);
 
+/**
+ * \brief allocates a new ramp2_t object inside an existing ramp2_t, will be cleared automatically (using ramp2_defer).
+ *
+ * \param Ramp existing ramp2_t object.
+ */
+ramp2_t *ramp2_nest(ramp2_t *Ramp);
+
 #endif

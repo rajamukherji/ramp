@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdatomic.h>
 #include <stdio.h>
+#include <stddef.h>
 
 typedef struct ramp2_page_t ramp2_page_t;
 
@@ -29,15 +30,6 @@ struct ramp2_t {
 	size_t PageSize, Space;
 };
 
-static inline ramp2_page_t *ramp2_page_new(size_t PageSize) {
-	ramp2_page_t *Page = (ramp2_page_t *)malloc(PageSize);
-	return Page;
-}
-
-static inline void ramp2_page_free(ramp2_page_t *Page) {
-	free(Page);
-}
-
 ramp2_group_t *ramp2_group_new(size_t PageSize) {
 	PageSize += 15;
 	PageSize &= ~15;
@@ -51,7 +43,7 @@ void ramp2_group_reset(ramp2_group_t *Group) {
 	ramp2_page_t *Old = atomic_exchange(&Group->Free, NULL);
 	for (ramp2_page_t *Page = Old->Next, *Next; Page; Page = Next) {
 		Next = Page->Next;
-		ramp2_page_free(Page);
+		free(Page);
 	}
 }
 
@@ -69,7 +61,7 @@ static inline ramp2_page_t *ramp2_group_page_new(ramp2_group_t *Group) {
 	ramp2_page_t *Page = Group->Free, *Free;
 	do {
 		if (!Page) {
-			Page = ramp2_page_new(Group->PageSize);
+			Page = (ramp2_page_t *)malloc(Group->PageSize);
 			break;
 		}
 		Free = Page->Next;
@@ -84,8 +76,7 @@ ramp2_t *ramp2_new(ramp2_group_t *Group) {
 	Ramp->Page = ramp2_group_page_new(Group);
 	Ramp->Full = NULL;
 	Ramp->Deferrals = NULL;
-	Ramp->PageSize = Group->PageSize - ((void *)((ramp2_page_t *)0)->Bytes - (void *)0);
-	Ramp->Space = Group->PageSize;
+	Ramp->Space = Ramp->PageSize = Group->PageSize - offsetof(ramp2_page_t, Bytes);
 	return Ramp;
 }
 
@@ -152,12 +143,40 @@ void ramp2_clear(ramp2_t *Ramp) {
 }
 
 void ramp2_free(ramp2_t *Ramp) {
-	ramp2_clear(Ramp);
-	ramp2_page_t *Page = Ramp->Page;
+	for (ramp2_deferral_t *Deferral = Ramp->Deferrals; Deferral; Deferral = Deferral->Next) Deferral->Callback(Deferral->Arg);
+	Ramp->Deferrals = NULL;
+	Ramp->Page->Next = Ramp->Full;
+	ramp2_page_t *First = Ramp->Page, *Last = First;
+	while (Last->Next) Last = Last->Next;
 	ramp2_group_t *Group = Ramp->Group;
 	ramp2_page_t *Free = Group->Free;
 	do {
-		Page->Next = Free;
-	} while (!atomic_compare_exchange_weak(&Group->Free, &Free, Page));
+		Last->Next = Free;
+	} while (!atomic_compare_exchange_weak(&Group->Free, &Free, First));
 	free(Ramp);
+}
+
+static void ramp2_unnest(ramp2_t *Ramp) {
+	for (ramp2_deferral_t *Deferral = Ramp->Deferrals; Deferral; Deferral = Deferral->Next) Deferral->Callback(Deferral->Arg);
+	Ramp->Deferrals = NULL;
+	Ramp->Page->Next = Ramp->Full;
+	ramp2_page_t *First = Ramp->Page, *Last = First;
+	while (Last->Next) Last = Last->Next;
+	ramp2_group_t *Group = Ramp->Group;
+	ramp2_page_t *Free = Group->Free;
+	do {
+		Last->Next = Free;
+	} while (!atomic_compare_exchange_weak(&Group->Free, &Free, First));
+}
+
+ramp2_t *ramp2_nest(ramp2_t *Ramp) {
+	ramp2_t *Ramp2 = (ramp2_t *)ramp2_alloc(Ramp, sizeof(ramp2_t));
+	ramp2_group_t *Group = Ramp->Group;
+	Ramp2->Group = Group;
+	Ramp2->Page = ramp2_group_page_new(Group);
+	Ramp2->Full = NULL;
+	Ramp2->Deferrals = NULL;
+	Ramp2->Space = Ramp2->PageSize = Ramp->PageSize;
+	ramp2_defer(Ramp, (void *)ramp2_unnest, Ramp2);
+	return Ramp2;
 }
