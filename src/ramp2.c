@@ -47,6 +47,25 @@ void ramp2_group_reset(ramp2_group_t *Group) {
 	}
 }
 
+void ramp2_group_trim(ramp2_group_t *Group, int Count) {
+	if (Count <= 0) return ramp2_group_reset(Group);
+	ramp2_page_t *Old = atomic_exchange(&Group->Free, NULL);
+	ramp2_page_t *First = Old, *Last;
+	while (--Count > 0) {
+		Last = Old;
+		Old = Old->Next;
+		if (!Old) break;
+	}
+	for (ramp2_page_t *Page = Old, *Next; Page; Page = Next) {
+		Next = Page->Next;
+		free(Page);
+	}
+	ramp2_page_t *Free = Group->Free;
+	do {
+		Last->Next = Free;
+	} while (!atomic_compare_exchange_weak(&Group->Free, &Free, First));
+}
+
 void ramp2_group_free(ramp2_group_t *Group) {
 	ramp2_page_t *Page = Group->Free;
 	while (Page) {

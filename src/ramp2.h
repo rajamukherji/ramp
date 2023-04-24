@@ -14,11 +14,19 @@ typedef struct ramp2_group_t ramp2_group_t;
 ramp2_group_t *ramp2_group_new(size_t PageSize);
 
 /**
- * \brief frees memory allocated within ramp2_group_t instance and frees memory blocks.
+ * \brief frees unused memory blocks within ramp2_group_t instance.
  *
  * \param Group ramp2_group_t object allocated with ramp2_group_new.
  */
 void ramp2_group_reset(ramp2_group_t *Group);
+
+/**
+ * \brief frees unused memory blocks within ramp2_group_t instance, keeping at most Count blocks.
+ *
+ * \param Group ramp2_group_t object allocated with ramp2_group_new.
+ * \param Count number of blocks to keep.
+ */
+void ramp2_group_trim(ramp2_group_t *Group, int Count);
 
 /**
  * \brief frees a ramp2_group_t object and all allocated pages, individual ramp2_t objects must be freed earlier.
