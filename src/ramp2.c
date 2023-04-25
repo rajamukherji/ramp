@@ -51,6 +51,7 @@ void ramp2_group_reset(ramp2_group_t *Group) {
 void ramp2_group_trim(ramp2_group_t *Group, int Count) {
 	if (Count <= 0) return ramp2_group_reset(Group);
 	ramp2_page_t *Old = atomic_exchange(&Group->Free, NULL);
+	if (!Old) return;
 	ramp2_page_t *First = Old, *Last;
 	while (--Count > 0) {
 		Last = Old;
