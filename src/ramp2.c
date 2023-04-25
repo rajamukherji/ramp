@@ -41,6 +41,7 @@ ramp2_group_t *ramp2_group_new(size_t PageSize) {
 
 void ramp2_group_reset(ramp2_group_t *Group) {
 	ramp2_page_t *Old = atomic_exchange(&Group->Free, NULL);
+	if (!Old) return;
 	for (ramp2_page_t *Page = Old->Next, *Next; Page; Page = Next) {
 		Next = Page->Next;
 		free(Page);
