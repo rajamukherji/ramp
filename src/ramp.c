@@ -11,7 +11,7 @@ struct ramp_page_t {
 
 struct ramp_deferral_t {
 	ramp_deferral_t *Next;
-	void (*Callback)(void *);
+	ramp_defer_fn Callback;
 	void *Arg;
 };
 
@@ -77,7 +77,7 @@ void *ramp_strdup(ramp_t *Ramp, const char *String) {
 	return Copy;
 }
 
-ramp_deferral_t *ramp_defer(ramp_t *Ramp, void (*Callback)(void *), void *Arg) {
+ramp_deferral_t *ramp_defer(ramp_t *Ramp, ramp_defer_fn Callback, void *Arg) {
 	ramp_deferral_t *Deferral = (ramp_deferral_t *)ramp_alloc(Ramp, sizeof(ramp_deferral_t));
 	Deferral->Next = Ramp->Deferrals;
 	Deferral->Callback = Callback;

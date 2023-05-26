@@ -58,6 +58,7 @@ void *ramp2_alloc(ramp2_t *Ramp, size_t Size) __attribute__((malloc));
  */
 void *ramp2_strdup(ramp2_t *Ramp, const char *String) __attribute__((malloc));
 
+typedef void (*ramp2_defer_fn)(void *);
 typedef struct ramp2_deferral_t ramp2_deferral_t;
 
 /**
@@ -68,7 +69,7 @@ typedef struct ramp2_deferral_t ramp2_deferral_t;
  * \param Arg argument to pass to CleanupFn.
  * \return A deferral reference which can be used to cancel this deferral.
  */
-ramp2_deferral_t *ramp2_defer(ramp2_t *Ramp, void (*Function)(void *), void *Arg);
+ramp2_deferral_t *ramp2_defer(ramp2_t *Ramp, ramp2_defer_fn Function, void *Arg);
 
 /**
  * \brief cancels a deferred call.
