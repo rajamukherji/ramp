@@ -62,7 +62,7 @@ typedef void (*ramp2_defer_fn)(void *);
 typedef struct ramp2_deferral_t ramp2_deferral_t;
 
 /**
- * \brief defers a function call until ramp2_clear or ramp2_reset.
+ * \brief defers a function call until ramp2_clear or ramp2_free.
  *
  * \param Ramp ramp2_t object allocated with ramp2_new.
  * \param Function function to call on reset.
@@ -98,5 +98,27 @@ void ramp2_free(ramp2_t *Ramp);
  * \param Ramp existing ramp2_t object.
  */
 ramp2_t *ramp2_nest(ramp2_t *Ramp);
+
+typedef struct ramp2_page_t ramp2_page_t;
+
+typedef struct {
+	ramp2_page_t *Page;
+	ramp2_deferral_t *Deferral;
+	size_t Space;
+} ramp2_state_t;
+
+/**
+ * \brief saves the current state of the ramp2_t object so it can be restored later.
+ *
+ * \param Ramp existing ramp2_t object.
+ */
+void ramp2_save(ramp2_t *Ramp, ramp2_state_t *State);
+
+/**
+ * \brief restores a previously saved state of a ramp2_t object.
+ *
+ * \param Ramp existing ramp2_t object.
+ */
+void ramp2_restore(ramp2_t *Ramp, ramp2_state_t *State);
 
 #endif

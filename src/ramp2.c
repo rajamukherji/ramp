@@ -201,3 +201,33 @@ ramp2_t *ramp2_nest(ramp2_t *Ramp) {
 	ramp2_defer(Ramp, (void *)ramp2_unnest, Ramp2);
 	return Ramp2;
 }
+
+void ramp2_save(ramp2_t *Ramp, ramp2_state_t *State) {
+	State->Page = Ramp->Page;
+	State->Deferral = Ramp->Deferrals;
+	State->Space = Ramp->Space;
+}
+
+void ramp2_restore(ramp2_t *Ramp, ramp2_state_t *State) {
+	for (ramp2_deferral_t *Deferral = Ramp->Deferrals; Deferral != State->Deferral; Deferral = Deferral->Next) Deferral->Callback(Deferral->Arg);
+	Ramp->Deferrals = State->Deferral;
+	ramp2_page_t *Page = State->Page;
+	if (Ramp->Page != Page) {
+		ramp2_page_t *First = Ramp->Page;
+		ramp2_page_t *Last = Ramp->Full;
+		if (Last != Page) {
+			First->Next = Last;
+			while (Last->Next != Page) Last = Last->Next;
+		} else {
+			Last = First;
+		}
+		ramp2_group_t *Group = Ramp->Group;
+		ramp2_page_t *Free = Group->Free;
+		do {
+			Last->Next = Free;
+		} while (!atomic_compare_exchange_weak(&Group->Free, &Free, First));
+		Ramp->Full = Page->Next;
+		Ramp->Page = Page;
+	}
+	Ramp->Space = State->Space;
+}
