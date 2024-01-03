@@ -7,7 +7,10 @@ else
 	CFLAGS := old + ["-O3"]
 end
 
-LIBRAMP := c_library(file("libramp.a"), [file("ramp.o")])
+LIBRAMP := c_library(file("libramp.a"), [
+	file("ramp.o"),
+	file("ramp2.o")
+])
 
 if defined("TEST_RAMP") then
 	subdir("test")
@@ -18,7 +21,8 @@ var InstallInclude := PREFIX / "include/ramp"
 var InstallLib := PREFIX / "lib"
 
 var InstallHeaders := [
-	"ramp.h"
+	"ramp.h",
+	"ramp2.h"
 ]
 
 for Header in InstallHeaders do

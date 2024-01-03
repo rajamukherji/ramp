@@ -1,4 +1,4 @@
-#include "../ramp.h"
+#include "../ramp2.h"
 
 #include <math.h>
 #include <string.h>
@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <time.h>
 #include <pthread.h>
-#include <stdint.h>
 
 #ifdef DEBUG
 #define OUTER 2
@@ -26,10 +25,10 @@ struct block_t {
 
 //#define COMPARE_MALLOC
 
-static void *thread_fn(void *Arg) {
+static void *thread_fn(ramp2_group_t *Group) {
 	printf("Starting thread...\n");
 #ifndef COMPARE_MALLOC
-	ramp_t *Ramp = ramp_new((uintptr_t)Arg);
+	ramp2_t *Ramp = ramp2_new(Group);
 #endif
 	size_t Size = 1;
 	for (int J = 0; J < OUTER; ++J) {
@@ -39,7 +38,7 @@ static void *thread_fn(void *Arg) {
 #ifdef COMPARE_MALLOC
 			block_t *Block = malloc(sizeof(block_t) + Size);
 #else
-			block_t *Block = ramp_alloc(Ramp, sizeof(block_t) + Size);
+			block_t *Block = ramp2_alloc(Ramp, sizeof(block_t) + Size);
 #endif
 #ifdef DEBUG
 			char Char = 'A' + Size % 26;
@@ -64,13 +63,12 @@ static void *thread_fn(void *Arg) {
 			Block = Next;
 		}
 #else
-		ramp_clear(Ramp);
+		ramp2_clear(Ramp);
 #endif
 	}
-	ramp_free(Ramp);
+	ramp2_free(Ramp);
 	printf("Finished thread.\n");
 }
-
 
 int main(int Argc, char **Argv) {
 #ifdef DEBUG
@@ -79,9 +77,11 @@ int main(int Argc, char **Argv) {
 	size_t PageSize = 1 << 16;
 #endif
 	if (Argc > 1) PageSize = atoi(Argv[1]) ?: (1 << 16);
+	ramp2_group_t *Group = ramp2_group_new(PageSize);
 	pthread_t Threads[8];
-	for (int I = 0; I < 8; ++I) pthread_create(Threads + I, NULL, (void *)thread_fn, (void *)(uintptr_t)PageSize);
+	for (int I = 0; I < 8; ++I) pthread_create(Threads + I, NULL, (void *)thread_fn, Group);
 	void *Return;
 	for (int I = 0; I < 8; ++I) pthread_join(Threads[I], &Return);
+	ramp2_group_free(Group);
 	return 0;
 }

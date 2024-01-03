@@ -11,7 +11,7 @@ struct ramp_page_t {
 
 struct ramp_deferral_t {
 	ramp_deferral_t *Next;
-	void (*Callback)(void *);
+	ramp_defer_fn Callback;
 	void *Arg;
 };
 
@@ -23,6 +23,7 @@ struct ramp_t {
 
 static inline ramp_page_t *ramp_page_new(size_t PageSize) {
 	ramp_page_t *Page = (ramp_page_t *)malloc(sizeof(ramp_page_t) + PageSize);
+	Page->Next = NULL;
 	return Page;
 }
 
@@ -34,7 +35,6 @@ ramp_t *ramp_new(size_t PageSize) {
 	PageSize += 15;
 	PageSize &= ~15;
 	ramp_page_t *Page = ramp_page_new(PageSize);
-	Page->Next = 0;
 	ramp_t *Ramp = (ramp_t *)malloc(sizeof(ramp_t));
 	Ramp->Pages = Page;
 	Ramp->Full = NULL;
@@ -58,10 +58,7 @@ void *ramp_alloc(ramp_t *Ramp, size_t Size) {
 		ramp_page_t *New = Old->Next;
 		Old->Next = Ramp->Full;
 		Ramp->Full = Old;
-		if (!New) {
-			New = ramp_page_new(Ramp->PageSize);
-			New->Next = NULL;
-		}
+		if (!New) New = ramp_page_new(Ramp->PageSize);
 		Ramp->Pages = New;
 		Ramp->Space = Ramp->PageSize - Size;
 		return New->Bytes + Ramp->Space;
@@ -80,7 +77,7 @@ void *ramp_strdup(ramp_t *Ramp, const char *String) {
 	return Copy;
 }
 
-ramp_deferral_t *ramp_defer(ramp_t *Ramp, void (*Callback)(void *), void *Arg) {
+ramp_deferral_t *ramp_defer(ramp_t *Ramp, ramp_defer_fn Callback, void *Arg) {
 	ramp_deferral_t *Deferral = (ramp_deferral_t *)ramp_alloc(Ramp, sizeof(ramp_deferral_t));
 	Deferral->Next = Ramp->Deferrals;
 	Deferral->Callback = Callback;
