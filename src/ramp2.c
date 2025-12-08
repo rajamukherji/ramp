@@ -28,6 +28,7 @@ struct ramp2_t {
 	ramp2_page_t *Page, *Full;
 	ramp2_deferral_t *Deferrals;
 	size_t PageSize, Space;
+	size_t OffPage;
 };
 
 ramp2_group_t *ramp2_group_new(size_t PageSize) {
@@ -98,6 +99,7 @@ ramp2_t *ramp2_new(ramp2_group_t *Group) {
 	Ramp->Full = NULL;
 	Ramp->Deferrals = NULL;
 	Ramp->Space = Ramp->PageSize = Group->PageSize - offsetof(ramp2_page_t, Bytes);
+	Ramp->OffPage = 0;
 	return Ramp;
 }
 
@@ -118,6 +120,7 @@ void *ramp2_alloc(ramp2_t *Ramp, size_t Size) {
 		Ramp->Space = Ramp->PageSize - Size;
 		return New->Bytes + Ramp->Space;
 	} else {
+		Ramp->OffPage += Size;
 		void *Bytes = malloc(Size);
 		ramp2_defer(Ramp, free, Bytes);
 		return Bytes;
@@ -161,6 +164,14 @@ void ramp2_clear(ramp2_t *Ramp) {
 		Ramp->Full = NULL;
 	}
 	Ramp->Space = Ramp->PageSize;
+	Ramp->OffPage = 0;
+}
+
+void ramp2_usage(ramp2_t *Ramp, size_t *Paged, size_t *OffPage) {
+	size_t Full = 1;
+	for (ramp2_page_t *Page = Ramp->Full; Page; Page = Page->Next) ++Full;
+	*Paged = Full * Ramp->PageSize - Ramp->Space;
+	*OffPage = Ramp->OffPage;
 }
 
 void ramp2_free(ramp2_t *Ramp) {

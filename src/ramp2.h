@@ -86,6 +86,13 @@ void ramp2_cancel(ramp2_deferral_t *Deferral);
 void ramp2_clear(ramp2_t *Ramp);
 
 /**
+ * \brief returns the current usage.
+ *
+ * \param Ramp ramp2_t object allocated with ramp2_new.
+ */
+void ramp2_usage(ramp2_t *Ramp, size_t *Paged, size_t *OffPage);
+
+/**
  * \brief frees a ramp2_t object and all allocated pages.
  *
  * \param Ramp ramp2_t object allocated with ramp2_new.
